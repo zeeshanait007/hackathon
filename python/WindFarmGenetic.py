@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import time
@@ -122,10 +123,15 @@ class WindFarmGenetic:
     # store the location index coordinate in x.dat and average power in y.dat
     def mc_gen_xy_NA(self, rows, cols, layouts, n, N, xfname, yfname):
         layouts_cr = np.zeros((rows * cols, 2), dtype=np.int32)  # layouts column row index
-        n_copies = np.sum(layouts, axis=0)
-        layouts_power = np.zeros((n, rows * cols), dtype=np.float32)
+        print('-----layouts',layouts.shape)#[1000,144]
+        n_copies = np.sum(layouts, axis=0)#[144,]
+        print('n_copies',n_copies.shape)
+        layouts_power = np.zeros((n, rows * cols), dtype=np.float32)#[1000,144]
         self.mc_fitness(pop=layouts, rows=rows, cols=cols, pop_size=n, N=N, lp=layouts_power)
-        sum_layout_power = np.sum(layouts_power, axis=0)
+        d=pd.DataFrame(layouts_power)
+        d.to_csv('layouts_power.csv')
+        sum_layout_power = np.sum(layouts_power, axis=0)#[144,]
+        print('sum_layout_power',sum_layout_power.shape)
         mean_power = np.zeros(rows * cols, dtype=np.float32)
         for i in range(rows * cols):
             if n_copies[i]>0:
@@ -137,25 +143,6 @@ class WindFarmGenetic:
             layouts_cr[ind, 1] = r_i
         np.savetxt(xfname, layouts_cr, fmt='%d', delimiter="  ")
         np.savetxt(yfname, mean_power, fmt='%f', delimiter="  ")
-        return
-    
-    def mc_gen_xy_NA_hackathon(self, rows, cols, layouts, n, N, xfname):
-        layouts_cr = np.zeros((rows * cols, 2), dtype=np.int32)  # layouts column row index
-        n_copies = np.sum(layouts, axis=0)
-        #layouts_power = np.zeros((n, rows * cols), dtype=np.float32)
-        self.mc_fitness_hackathon(pop=layouts, rows=rows, cols=cols, pop_size=n, N=N,xfname=xfname)
-        #sum_layout_power = np.sum(layouts_power, axis=0)
-        #mean_power = np.zeros(rows * cols, dtype=np.float32)
-        #for i in range(rows * cols):
-        #    if n_copies[i]>0:
-        #        mean_power[i] = sum_layout_power[i] / n_copies[i]
-        for ind in range(rows * cols):
-            r_i = np.floor(ind / cols)
-            c_i = np.floor(ind - r_i * cols)
-            layouts_cr[ind, 0] = c_i
-            layouts_cr[ind, 1] = r_i
-        np.savetxt(xfname, layouts_cr, fmt='%d', delimiter="  ")
-        #np.savetxt(yfname, mean_power, fmt='%f', delimiter="  ")
         return
 
     # calculate fitness value of the population
@@ -176,6 +163,10 @@ class WindFarmGenetic:
                     xy_position[1, ind_pos] = r_i * self.cell_width + self.cell_width_half
                     ind_position[ind_pos] = ind
                     ind_pos += 1
+            print('xy_position',xy_position.shape) 
+            np.savetxt('./data/cord/xycord_layout'+str(i)+'.dat', xy_position, fmt='%d', delimiter="  ")
+            print('ind_position',ind_position) 
+            np.savetxt('./data/cord/cord_layout'+str(i)+'.dat', ind_position, fmt='%d', delimiter="  ")
             lp_power_accum = np.zeros(N, dtype=np.float32)  # a specific layout power accumulate
             for ind_t in range(len(self.theta)):
                 for ind_v in range(len(self.velocity)):
@@ -189,11 +180,14 @@ class WindFarmGenetic:
                     actual_velocity = (1 - speed_deficiency) * self.velocity[ind_v]
                     lp_power = self.layout_power(actual_velocity,
                                                      N)  # total power of a specific layout specific wind speed specific theta
+                    
                     lp_power = lp_power * self.f_theta_v[ind_t, ind_v]
+                    #lp_power = partAEP(N, 100, xy_position, power_curve, self.theta, self.velocity)
+                    print('lp_power shape',lp_power.shape)#[25,]
                     lp_power_accum += lp_power
-
-            lp[i, ind_position] = lp_power_accum
-
+            print('lp_power_accum',lp_power_accum.shape)
+            lp[i, ind_position] = lp_power_accum #[1000,144]
+            print('lp shape',lp.shape)
         return
 
  # calculate fitness value of the population

@@ -5,6 +5,8 @@ import matplotlib.patches as patches
 import time
 from datetime import datetime
 import sys 
+from tqdm import trange
+
 sys.path.append('../Shell_Code_Modified/')
 import Farm_Evaluator_Vec
 
@@ -115,7 +117,7 @@ class WindFarmGenetic:
     # calculate fitness value of the population
     def mc_fitness_hackathon(self, pop, rows, cols, pop_size, N,lp=None,ordered_ind=None):
         fitness_val = np.zeros(pop_size, dtype=np.float32)
-        for i in range(pop_size):
+        for i in trange(pop_size,desc='layouts'):
 #             print("layout {}...".format(i))
             xy_position = np.zeros((N,2), dtype=np.float32)  # x y position
             cr_position = np.zeros((2, N), dtype=np.int32)  # column row position

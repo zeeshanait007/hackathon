@@ -120,7 +120,7 @@ class WindFarmGenetic:
     # calculate fitness value of the population
     def mc_fitness_hackathon(self, pop, rows, cols, pop_size, N,lp=None,ordered_ind=None):
         fitness_val = np.zeros(pop_size, dtype=np.float32)
-        for i in trange(pop_size,desc='layouts'):
+        for i in trange(pop_size,desc='layouts',position=0, leave=True):
 #             print("layout {}...".format(i))
             xy_position = np.zeros((N,2), dtype=np.float32)  # x y position
             cr_position = np.zeros((2, N), dtype=np.int32)  # column row position
@@ -154,9 +154,9 @@ class WindFarmGenetic:
             if r < 0.5:
                 self.sugga_move_worst_case_random(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                                            pop_size=pop_size, power_order=power_order)
-            else:
-                self.sugga_move_worst_case_best(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-                                                         pop_size=pop_size, power_order=power_order, mars=mars,svr_model=svr_model)
+#             else:
+#                 self.sugga_move_worst_case_best(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+#                                                          pop_size=pop_size, power_order=power_order, mars=mars,svr_model=svr_model)
 
         return
 
@@ -178,7 +178,7 @@ class WindFarmGenetic:
         pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]-1
         #next turbine position
         #pop_NA[i, null_turbine_pos] = 1
-        ind_interior_region=regionmappingindex(rows,turbine_pos,self.radius)
+        ind_interior_region=regionmappingindex(rows,null_turbine_pos,self.radius)
         pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]+1
         
 
@@ -215,7 +215,7 @@ class WindFarmGenetic:
         pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]-1
         #next turbine position
         #pop_NA[i, null_turbine_pos] = 1
-        ind_interior_region=regionmappingindex(rows,turbine_pos,self.radius)
+        ind_interior_region=regionmappingindex(rows,null_turbine_pos,self.radius)
         pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]+1
 
         power_order[i, 0] = null_turbine_pos
@@ -250,24 +250,24 @@ class WindFarmGenetic:
                 if num_options==0:
                     continue
                 
-                print(num_options)
+#                 print(num_options)
                 cross_point=1
                 if num_options>1:
                     cross_point = np.random.randint(1, num_options)
                                
                 np.random.shuffle(m_nov)
                 np.random.shuffle(f_nov)
-                print("corss_point:"+str(cross_point))
-                #first crossover sample point (prime male)
-                print("size: m_ov-->"+str(len(m_ov))+" m_nov-->"+str(len(m_nov))+" f_ov-->"+str(len(f_ov))+" f_nov-->"+str(len(f_nov)))
+#                 print("corss_point:"+str(cross_point))
+#                 #first crossover sample point (prime male)
+#                 print("size: m_ov-->"+str(len(m_ov))+" m_nov-->"+str(len(m_nov))+" f_ov-->"+str(len(f_ov))+" f_nov-->"+str(len(f_nov)))
                 pop[n_counter, :] = 0
                 pop[n_counter, m_ov] = 1
                 pop[n_counter, f_nov[:cross_point]] = 1
                 pop[n_counter, m_nov[cross_point:]] = 1
-                print("cross_point: f_nov-->"+str(len(f_nov[:cross_point]))+" m_nov-->"+str(len(m_nov[cross_point:])))
-                print("cross_point: f_nov-->"+str(f_nov[:cross_point])+" m_nov-->"+str(m_nov[cross_point:]))
+#                 print("cross_point: f_nov-->"+str(len(f_nov[:cross_point]))+" m_nov-->"+str(len(m_nov[cross_point:])))
+#                 print("cross_point: f_nov-->"+str(f_nov[:cross_point])+" m_nov-->"+str(m_nov[cross_point:]))
                 
-                print(sum(pop[n_counter,:]))
+#                 print(sum(pop[n_counter,:]))
                 #fill NA location
                 pop_NA[n_counter, :]=0
                 tur_pos=np.where(pop[n_counter,:]==1)[0]
@@ -282,14 +282,14 @@ class WindFarmGenetic:
                 
                 n_counter +=1
                 #second crossover sample point (prime female)
-                print("size: m_ov-->"+str(len(m_ov))+" m_nov-->"+str(len(m_nov))+" f_ov-->"+str(len(f_ov))+" f_nov-->"+str(len(f_nov)))
+#                 print("size: m_ov-->"+str(len(m_ov))+" m_nov-->"+str(len(m_nov))+" f_ov-->"+str(len(f_ov))+" f_nov-->"+str(len(f_nov)))
                 pop[n_counter, :] = 0
                 pop[n_counter, f_ov] = 1
                 pop[n_counter, m_nov[:cross_point]] = 1
                 pop[n_counter, f_nov[cross_point:]] = 1
-                print("cross_point: m_nov-->"+str(len(m_nov[:cross_point]))+" f_nov-->"+str(len(f_nov[cross_point:])))
-                print("cross_point: m_nov-->"+str(m_nov[:cross_point])+" f_nov-->"+str(f_nov[cross_point:]))
-                print(sum(pop[n_counter,:]))
+#                 print("cross_point: m_nov-->"+str(len(m_nov[:cross_point]))+" f_nov-->"+str(len(f_nov[cross_point:])))
+#                 print("cross_point: m_nov-->"+str(m_nov[:cross_point])+" f_nov-->"+str(f_nov[cross_point:]))
+#                 print(sum(pop[n_counter,:]))
                 #fill NA location
                 pop_NA[n_counter, :]=0
                 tur_pos=np.where(pop[n_counter,:]==1)[0]
@@ -387,8 +387,8 @@ class WindFarmGenetic:
                     fitness_generations[gen] = fitness_generations[gen - 1]
                     best_layout_generations[gen, :] = best_layout_generations[gen - 1, :]
                     best_layout_NA_generations[gen, :] = best_layout_NA_generations[gen - 1, :]
-            self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-                                           pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
+#             self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+#                                            pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
 
 
 

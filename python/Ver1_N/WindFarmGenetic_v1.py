@@ -52,7 +52,7 @@ class WindFarmGenetic:
     
         # generate initial population
     def gen_init_pop_NA(self):
-        #self.init_pop,self.init_pop_NA = LayoutGridMCGenerator.gen_mc_grid_with_NA_loc(rows=self.rows, cols=self.cols,NA_loc=self.NA_loc, n=self.pop_size, N=self.N) #default version
+
         self.init_pop,self.init_pop_NA = LayoutGridMCGenerator.gen_mc_grid_with_NA_loc_circle(rows=self.rows, cols=self.cols,NA_loc=self.NA_loc, n=self.pop_size, N=self.N, radius=self.radius)
         self.init_pop_nonezero_indices = np.zeros((self.pop_size, self.N), dtype=np.int32)
         for ind_init_pop in range(self.pop_size):
@@ -154,9 +154,9 @@ class WindFarmGenetic:
             if r < 0.5:
                 self.sugga_move_worst_case_random(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                                            pop_size=pop_size, power_order=power_order)
-#             else:
-#                 self.sugga_move_worst_case_best(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-#                                                          pop_size=pop_size, power_order=power_order, mars=mars,svr_model=svr_model)
+            else:
+                self.sugga_move_worst_case_best(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+                                                         pop_size=pop_size, power_order=power_order, mars=mars,svr_model=svr_model)
 
         return
 
@@ -254,7 +254,8 @@ class WindFarmGenetic:
                 cross_point=1
                 if num_options>1:
                     cross_point = np.random.randint(1, num_options)
-                               
+                
+                
                 np.random.shuffle(m_nov)
                 np.random.shuffle(f_nov)
 #                 print("corss_point:"+str(cross_point))
@@ -329,7 +330,7 @@ class WindFarmGenetic:
             pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]-1
             #next turbine position
             #pop_NA[i, null_turbine_pos] = 1
-            ind_interior_region=regionmappingindex(rows,turbine_pos,self.radius,minCut=0)
+            ind_interior_region=regionmappingindex(rows,null_turbine_pos,self.radius,minCut=0)
             pop_NA[i,ind_interior_region]=pop_NA[i,ind_interior_region]+1
             
             for j in range(N):
@@ -387,8 +388,8 @@ class WindFarmGenetic:
                     fitness_generations[gen] = fitness_generations[gen - 1]
                     best_layout_generations[gen, :] = best_layout_generations[gen - 1, :]
                     best_layout_NA_generations[gen, :] = best_layout_NA_generations[gen - 1, :]
-#             self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-#                                            pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
+            self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+                                           pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
 
 
 
@@ -509,46 +510,7 @@ class LayoutGridMCGenerator:
     def __init__(self):
         return
 
-    # rows : number of rows in wind farm
-    # cols : number of columns in wind farm
-    # n : number of layouts
-    # N : number of turbines
-    # NA_loc : not usable locations
-    # generate layouts with not usable locations
-    def gen_mc_grid_with_NA_loc(rows, cols, n, N,NA_loc, lofname=None,loNAfname=None):  # , xfname): generate monte carlo wind farm layout grids
-        np.random.seed(seed=int(time.time()))  # init random seed
-        layouts = np.zeros((n, rows * cols), dtype=np.int32)  # one row is a layout, NA loc is 0
 
-        layouts_NA= np.zeros((n, rows * cols), dtype=np.int32)  # one row is a layout, NA loc is 2
-        for i in NA_loc:
-            layouts_NA[:,i-1]=2
-
-        # layouts_cr = np.zeros((n*, 2), dtype=np.float32)  # layouts column row index
-        positionX = np.random.randint(0, cols, size=(N * n * 2))
-        positionY = np.random.randint(0, rows, size=(N * n * 2))
-        ind_rows = 0  # index of layouts from 0 to n-1
-        ind_pos = 0  # index of positionX, positionY from 0 to N*n*2-1
-        # ind_crs = 0
-        N_count=0
-        while ind_rows < n:
-            cur_state=layouts_NA[ind_rows, positionX[ind_pos] + positionY[ind_pos] * cols]
-            if cur_state!=1 and cur_state!=2:
-                layouts[ind_rows, positionX[ind_pos] + positionY[ind_pos] * cols]=1
-                layouts_NA[ind_rows, positionX[ind_pos] + positionY[ind_pos] * cols] = 1
-                N_count+=1
-                if np.sum(layouts[ind_rows, :]) == N:
-                    ind_rows += 1
-                    N_count=0
-            ind_pos += 1
-            if ind_pos >= N * n * 2:
-                print("Not enough positions")
-                break
-        # filename = "positions{}by{}by{}N{}.dat".format(rows, cols, n, N)
-        if lofname is not None:
-            np.savetxt(lofname, layouts, fmt='%d', delimiter="  ")
-            np.savetxt(loNAfname, layouts_NA, fmt='%d', delimiter="  ")
-        # np.savetxt(xfname, layouts_cr, fmt='%d', delimiter="  ")
-        return layouts,layouts_NA
     
     #added function by Naveen for square layout( original copy: gen_mc_grid_with_NA_loc)
     # rows : number of rows in wind farm

@@ -151,7 +151,7 @@ class WindFarmGenetic:
         np.random.seed(seed=int(time.time()))
         for i in range(pop_size):
             r = np.random.randn()
-            if r < 0.5:
+            if r < 0.7:
                 self.sugga_move_worst_case_random(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                                            pop_size=pop_size, power_order=power_order)
             else:
@@ -233,13 +233,21 @@ class WindFarmGenetic:
         parent_layouts = pop[parents_ind, :]
         parent_layouts_NA = pop_NA[parents_ind, :]
         parent_pop_indices = pop_indices[parents_ind, :]
-        return len(parent_pop_indices), parent_layouts, parent_layouts_NA, parent_pop_indices
+        return len(parent_pop_indices), parent_layouts, parent_layouts_NA, parent_pop_indices,n_elite
     
     # SUGGA crossover
     def sugga_crossover(self, N, pop,pop_NA, pop_indices, pop_size, n_parents,
-                                     parent_layouts,parent_layouts_NA, parent_pop_indices):
+                                     parent_layouts,parent_layouts_NA, parent_pop_indices,elite_pop_num):
         n_counter = 0
         np.random.seed(seed=int(time.time()))  # init random seed
+        
+        cross_pop_general = int(np.random.randint(1,elite_pop_num)/2)*2
+        while n_counter < cross_pop_general:
+            pop[n_counter, :] =parent_layouts[n_counter,:]
+            pop_NA[n_counter, :]=parent_layouts_NA[n_counter,:]
+            pop_indices[n_counter,:]=parent_pop_indices[n_counter,:]
+            n_counter +=1
+  
         while n_counter < pop_size:
             male = np.random.randint(0, n_parents)
             female = np.random.randint(0, n_parents)
@@ -346,9 +354,15 @@ class WindFarmGenetic:
 #         P_rate_total = self.cal_P_rate_total()
         start_time = datetime.now()
         print("Support vector regression guided genetic algorithm starts....")
-        fitness_generations = np.zeros(self.iteration, dtype=np.float32)  # best fitness value in each generation
+        fitness_generations = np.zeros(self.iteration, dtype=np.float32)  # best fitness value till current generation
+        
         best_layout_generations = np.zeros((self.iteration, self.rows * self.cols),
+                                           dtype=np.int32)  # best layout till current generation
+        
+        generation_best_layout=np.zeros((self.iteration, self.rows * self.cols),
                                            dtype=np.int32)  # best layout in each generation
+        generation_best_fitness = np.zeros(self.iteration, dtype=np.float32)  # best fitness value in each generation
+        
         best_layout_NA_generations = np.zeros((self.iteration, self.rows * self.cols),
                                               dtype=np.int32)  # best layout in each generation
 
@@ -388,12 +402,16 @@ class WindFarmGenetic:
                     fitness_generations[gen] = fitness_generations[gen - 1]
                     best_layout_generations[gen, :] = best_layout_generations[gen - 1, :]
                     best_layout_NA_generations[gen, :] = best_layout_NA_generations[gen - 1, :]
+            
+            generation_best_fitness[gen] = fitness_value[sorted_index[0]]
+            generation_best_layout[gen, :] = pop[0, :]
+            
             self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                            pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
 
 
 
-            n_parents, parent_layouts,parent_layouts_NA,  parent_pop_indices = self.sugga_select(pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+            n_parents, parent_layouts,parent_layouts_NA,  parent_pop_indices,elite_pop_num = self.sugga_select(pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                                                                        pop_size=self.pop_size,
                                                                                        elite_rate=self.elite_rate,
                                                                                        random_rate=self.random_rate)
@@ -401,7 +419,7 @@ class WindFarmGenetic:
 
             self.sugga_crossover(N=self.N, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices, pop_size=self.pop_size,
                                           n_parents=n_parents,
-                                          parent_layouts=parent_layouts,parent_layouts_NA=parent_layouts_NA, parent_pop_indices=parent_pop_indices)
+                                          parent_layouts=parent_layouts,parent_layouts_NA=parent_layouts_NA, parent_pop_indices=parent_pop_indices,elite_pop_num=elite_pop_num)
 
 
 
@@ -422,6 +440,15 @@ class WindFarmGenetic:
         filename = "{}/sugga_best_layouts_NA_N{}_{}_{}.dat".format(result_folder,self.N, ind_time, time_stamp)
         np.savetxt(filename, best_layout_NA_generations, fmt='%d', delimiter="  ")
         print("Support vector regression guided genetic algorithm ends.")
+        
+        filename = "{}/sugga_best_generation_layout_N{}_{}_{}.dat".format(result_folder,self.N, ind_time, time_stamp)
+        np.savetxt(filename, generation_best_layout, fmt='%d', delimiter="  ")
+        
+        filename = "{}/sugga_best_generation_eta_N{}_{}_{}.dat".format(result_folder,self.N, ind_time, time_stamp)
+        np.savetxt(filename, generation_best_fitness, fmt='%f', delimiter="  ")
+
+        
+        
         filename = "{}/sugga_runtime.txt".format(result_folder)
         f = open(filename, "a+")
         f.write("{}\n".format(run_time))

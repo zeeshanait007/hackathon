@@ -456,7 +456,7 @@ def checkConstraints(turb_coords, turb_diam):
         
     return()
 
-def get_AEP_results(default_location='../../data/Shell_Hackathon_Dataset/',turb_coords=None):
+def get_AEP_results(default_location='../../data/Shell_Hackathon_Dataset/',turb_coords=None,wind_inst_freq_file=None):
     # Turbine Specifications.
     # -**-SHOULD NOT BE MODIFIED-**-
     turb_specs    =  {   
@@ -484,7 +484,10 @@ def get_AEP_results(default_location='../../data/Shell_Hackathon_Dataset/',turb_
     
     # Pass wind data csv file location to function binWindResourceData.
     # Retrieve probabilities of wind instance occurence.
-    wind_inst_freq =  binWindResourceData(default_location+'Wind_Data/wind_data_2007.csv')   
+    if wind_inst_freq_file is None:
+        wind_inst_freq =  binWindResourceData(default_location+'Wind_Data/wind_data_2007.csv')   
+    else:
+        wind_inst_freq=   binWindResourceData(wind_inst_freq_file)
     
     # Doing preprocessing to avoid the same repeating calculations. Record 
     # the required data for calculations. Do that once. Data are set up (shaped)

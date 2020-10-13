@@ -8,7 +8,7 @@ import sys
 from tqdm import trange
 
 sys.path.append('../Shell_Code_Modified/')
-import Farm_Evaluator_Vec
+import Farm_Evaluator_Vec_Class
 
 class WindFarmGenetic:
     elite_rate = 0.2 # elite rate: parameter for genetic algorithm
@@ -24,10 +24,11 @@ class WindFarmGenetic:
     NA_loc=None # not available, not usable locations index list (the index starts from 1)
     cell_width = 0  # cell width
     cell_width_half = 0  # half cell width
-
+    FarmEvaluator_Class_inst=None
+    
     # constructor of the class
     def __init__(self, rows=21, cols=21, N=0,NA_loc=None, pop_size=100, iteration=200,cell_width=0, elite_rate=0.2,
-                 cross_rate=0.6, random_rate=0.5, mutate_rate=0.1,constraint_dist=400):
+                 cross_rate=0.6, random_rate=0.5, mutate_rate=0.1,constraint_dist=400,shell_default_location='../../data/Shell_Hackathon_Dataset/', wind_inst_freq_file=None):
         self.rows = rows
         self.cols = cols
         self.N = N
@@ -48,6 +49,7 @@ class WindFarmGenetic:
         self.init_pop_NA = None
         self.init_pop_nonezero_indices = None
         self.NA_loc=NA_loc
+        self.FarmEvaluator_Class_inst=Farm_Evaluator_Vec_Class.Farm_Eval_mainClass(shell_default_location,wind_inst_freq_file)
         return
     
         # generate initial population
@@ -116,6 +118,26 @@ class WindFarmGenetic:
         np.savetxt(yfname, mean_power, fmt='%f', delimiter="  ")
         return
     
+    #added by Naveen (get output energy of a layout)
+    def get_energy_layout(self, pop, rows, cols, N,cell_width):
+    
+        xy_position = np.zeros((N,2), dtype=np.float32)
+    #     print(pop.shape)
+        ind_pos=0
+        for ind in range(rows * cols):
+            if pop[ ind] == 1:
+                r_i = np.floor(ind / cols)
+                c_i = np.floor(ind - r_i * rows)
+
+                xy_position[ind_pos,0] = c_i * cell_width + cell_width/2
+                xy_position[ind_pos,1] = r_i * cell_width + cell_width/2
+                ind_pos += 1
+        #             print(xy_position)
+
+    #     total_energy,lp_power_accum=Farm_Evaluator_Vec.get_AEP_results(turb_coords=xy_position)
+        total_energy,lp_power_accum=self.FarmEvaluator_Class_inst.get_AEP_results(turb_coords=xy_position)
+        return (total_energy, lp_power_accum)
+
     #MODIFIED FUNCTION for Shell Hackathon (Original: mc_gen_xy_NA)
     # calculate fitness value of the population
     def mc_fitness_hackathon(self, pop, rows, cols, pop_size, N,lp=None,ordered_ind=None):
@@ -137,7 +159,8 @@ class WindFarmGenetic:
                     ind_position[ind_pos] = ind
                     ind_pos += 1
 #             print(xy_position)
-            total_energy,lp_power_accum=Farm_Evaluator_Vec.get_AEP_results(turb_coords=xy_position)
+            total_energy,lp_power_accum=self.FarmEvaluator_Class_inst.get_AEP_results(turb_coords=xy_position)
+#             total_energy,lp_power_accum=self.FarmEvaluator_Class_inst.get_AEP_results()
             if lp is not None:
                 lp[i, ind_position] = lp_power_accum
             if ordered_ind is not None:
@@ -147,7 +170,7 @@ class WindFarmGenetic:
         return fitness_val
 
 
-    def sugga_move_worst(self, rows, cols, pop,pop_NA, pop_indices, pop_size, power_order,mars=None,svr_model=None):
+    def sugga_move_worst(self, rows, cols, pop,pop_NA, pop_indices, pop_size, power_order):
         np.random.seed(seed=int(time.time()))
         for i in range(pop_size):
             r = np.random.randn()
@@ -155,8 +178,8 @@ class WindFarmGenetic:
                 self.sugga_move_worst_case_random(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
                                                            pop_size=pop_size, power_order=power_order)
             else:
-                self.sugga_move_worst_case_best(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-                                                         pop_size=pop_size, power_order=power_order, mars=mars,svr_model=svr_model)
+                self.sugga_move_worst_case_best_AEP(i=i, rows=rows, cols=cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
+                                                         pop_size=pop_size, power_order=power_order)
 
         return
 
@@ -186,24 +209,34 @@ class WindFarmGenetic:
         pop_indices[i, :] = np.sort(power_order[i, :])
         return
 
-    def sugga_move_worst_case_best(self, i, rows, cols, pop,pop_NA, pop_indices, pop_size, power_order, mars,svr_model):
+
+    
+    
+    #subsitute function to get best result from direct AEP function call
+    def sugga_move_worst_case_best_AEP(self, i, rows, cols, pop,pop_NA, pop_indices, pop_size, power_order):
         np.random.seed(seed=int(time.time()))
-        n_candiate = 5
-        pos_candidate = np.zeros((n_candiate, 2), dtype=np.int32)
-        ind_pos_candidate = np.zeros(n_candiate, dtype=np.int32)
+        n_candidate = 5
+        ind_pos_candidate = np.zeros(n_candidate, dtype=np.int32)
         turbine_pos = power_order[i, 0]
         ind_can = 0
         while True:
             null_turbine_pos = np.random.randint(0, cols * rows)
             if pop_NA[i, null_turbine_pos] == 0:
-                pos_candidate[ind_can, 1] = int(np.floor(null_turbine_pos / cols))
-                pos_candidate[ind_can, 0] = int(np.floor(null_turbine_pos - pos_candidate[ind_can, 1] * cols))
                 ind_pos_candidate[ind_can] = null_turbine_pos
                 ind_can += 1
-                if ind_can == n_candiate:
+                if ind_can == n_candidate:
                     break
-        svr_val = svr_model.predict(pos_candidate)
-        sorted_index = np.argsort(-svr_val)  # fitness value descending from largest to least
+        energy_val_can=np.zeros(n_candidate)
+        for ind_can in range(n_candidate):
+            temp_layout=pop[i].copy()
+            temp_layout[turbine_pos]=0
+            temp_layout[ind_pos_candidate[ind_can]]=1
+            total_energy, per_turbine_layout= self.get_energy_layout( temp_layout, rows, cols, self.N,self.cell_width)
+            energy_val_can[ind_can]=total_energy
+            
+        sorted_index = np.argsort(-energy_val_can)  # fitness value descending from largest to least
+#         print(energy_val_can)
+#         print(sorted_index)
         null_turbine_pos = ind_pos_candidate[sorted_index[0]]
 
         pop[i, turbine_pos] = 0
@@ -221,7 +254,6 @@ class WindFarmGenetic:
         power_order[i, 0] = null_turbine_pos
         pop_indices[i, :] = np.sort(power_order[i, :])
         return
-    
     # SUGGA select
     def sugga_select(self, pop,pop_NA, pop_indices, pop_size, elite_rate, random_rate):
         n_elite = int(pop_size * elite_rate)
@@ -407,7 +439,7 @@ class WindFarmGenetic:
             generation_best_layout[gen, :] = pop[0, :]
             
             self.sugga_move_worst(rows=self.rows, cols=self.cols, pop=pop,pop_NA=pop_NA, pop_indices=pop_indices,
-                                           pop_size=self.pop_size, power_order=power_order, svr_model=svr_model)
+                                           pop_size=self.pop_size, power_order=power_order)
 
 
 
@@ -458,6 +490,9 @@ class WindFarmGenetic:
         f.write("{}\n".format(eta_generations[self.iteration - 1]))
         f.close()
         return run_time, eta_generations[self.iteration - 1]
+
+
+
 
 #class TBWL (New Code:--> Zeeshan, Naveen)
 def points_in_circle_np(radius, x0=0, y0=0):

@@ -25,10 +25,11 @@ class WindFarmGenetic:
     cell_width = 0  # cell width
     cell_width_half = 0  # half cell width
     FarmEvaluator_Class_inst=None
+    perim_cells=None
     
     # constructor of the class
     def __init__(self, rows=21, cols=21, N=0,NA_loc=None, pop_size=100, iteration=200,cell_width=0, elite_rate=0.2,
-                 cross_rate=0.6, random_rate=0.5, mutate_rate=0.1,constraint_dist=400,shell_default_location='../../data/Shell_Hackathon_Dataset/', wind_inst_freq_file=None):
+                 cross_rate=0.6, random_rate=0.5, mutate_rate=0.1,constraint_dist=400,constraint_perim=50,shell_default_location='../../data/Shell_Hackathon_Dataset/', wind_inst_freq_file=None):
         self.rows = rows
         self.cols = cols
         self.N = N
@@ -38,6 +39,7 @@ class WindFarmGenetic:
         self.cell_width = cell_width
         self.cell_width_half = cell_width * 0.5
         self.radius=np.ceil(constraint_dist/self.cell_width)
+        self.perim_cells=int(np.ceil(constraint_perim/self.cell_width))
         
         self.elite_rate = elite_rate
         self.cross_rate = cross_rate
@@ -55,7 +57,7 @@ class WindFarmGenetic:
         # generate initial population
     def gen_init_pop_NA(self):
 
-        self.init_pop,self.init_pop_NA = LayoutGridMCGenerator.gen_mc_grid_with_NA_loc_circle(rows=self.rows, cols=self.cols,NA_loc=self.NA_loc, n=self.pop_size, N=self.N, radius=self.radius)
+        self.init_pop,self.init_pop_NA = LayoutGridMCGenerator.gen_mc_grid_with_NA_loc_circle_border(rows=self.rows, cols=self.cols,NA_loc=self.NA_loc, n=self.pop_size, N=self.N, radius=self.radius, perim_cells=self.perim_cells)
         self.init_pop_nonezero_indices = np.zeros((self.pop_size, self.N), dtype=np.int32)
         for ind_init_pop in range(self.pop_size):
             ind_indices = 0
@@ -568,6 +570,36 @@ def find_nonoverlap_cells(layout1, layout1_NA, layout2,layout2_NA):
     nov_2=np.where(np.array([tx==1 and ty==0 for tx,ty in zip(layout2,layout1_NA)]).astype(int) == 1)[0]
     return (ov_1,nov_1,ov_2,nov_2)
 
+def get_layout_border_points(dimen,radius,perim_cells):
+    
+    border_locs=[]
+    start_point=np.random.randint(perim_cells,perim_cells+5)
+
+    #top border
+    while(start_point<(dimen-perim_cells)):
+        border_locs.append(perim_cells*dimen+start_point)
+        start_point +=radius+np.random.randint(1,2)
+    
+    #bottom border
+    start_point=np.random.randint(perim_cells,perim_cells+5)
+    while(start_point<(dimen-perim_cells)):
+        border_locs.append((dimen-1-perim_cells)*dimen+start_point)
+        start_point +=radius+np.random.randint(1,2)
+
+    #left border
+    start_point=np.random.randint(perim_cells,perim_cells+5)
+    while(start_point<(dimen-perim_cells)):
+        border_locs.append(start_point*dimen+1)
+        start_point +=radius+np.random.randint(1,2)
+
+    #right border
+    start_point=np.random.randint(perim_cells,perim_cells+5)
+    while(start_point<(dimen-perim_cells)):
+        border_locs.append((start_point)*dimen+dimen-perim_cells-1)
+        start_point +=radius+np.random.randint(1,2)
+    
+    return border_locs
+    
 class LayoutGridMCGenerator:
     def __init__(self):
         return
@@ -608,6 +640,74 @@ class LayoutGridMCGenerator:
                     #Naveen (put all positions inside square to occupy state (not zero))
                     ind_interior_region=regionmappingindex(cols,X_pos + Y_pos * cols,radius,minCut=0)
     #                 print(ind_interior_region)
+    #                 print("prior assignment")
+    #                 print(layouts_NA[ind_rows, ind_interior_region])
+                    layouts_NA[ind_rows, ind_interior_region] = layouts_NA[ind_rows, ind_interior_region] +1 #number of obstacles (#turbines) mapped to cell.
+    #                 print("after assignment")
+    #                 print(layouts_NA[ind_rows, ind_interior_region])
+#             print(layouts_NA[ind_rows,:])
+#             print(layouts[ind_rows,:])
+#             print("Number of Turbines: "+str(np.sum(layouts[ind_rows,:])))
+#             print("Number of Obstacle Positions: "+str(np.sum(layouts_NA[ind_rows,:])))
+
+
+        # filename = "positions{}by{}by{}N{}.dat".format(rows, cols, n, N)
+        if lofname is not None:
+            np.savetxt(lofname, layouts, fmt='%d', delimiter="  ")
+            np.savetxt(loNAfname, layouts_NA, fmt='%d', delimiter="  ")
+        # np.savetxt(xfname, layouts_cr, fmt='%d', delimiter="  ")
+        return layouts,layouts_NA
+
+    #added function by Naveen for square layout( original copy: gen_mc_grid_with_NA_loc)
+    # rows : number of rows in wind farm
+    # cols : number of columns in wind farm
+    # n : number of layouts
+    # N : number of turbines
+    # NA_loc : not usable locations
+    # generate layouts with not usable locations
+    
+    
+    def gen_mc_grid_with_NA_loc_circle_border(rows, cols, n, N,NA_loc, radius,perim_cells,lofname=None,loNAfname=None):  # , xfname): generate monte carlo wind farm layout grids
+        np.random.seed(seed=int(time.time()))  # init random seed
+        layouts = np.zeros((n, rows * cols), dtype=np.int32)  # one row is a layout, NA loc is 0
+
+        layouts_NA= np.zeros((n, rows * cols), dtype=np.int32)  # one row is a layout, NA loc is 2
+        for i in NA_loc:
+            layouts_NA[:,i]=1
+#         print("radius:"+str(radius))
+        # layouts_cr = np.zeros((n*, 2), dtype=np.float32)  # layouts column row index
+        ind_rows = 0  # index of layouts from 0 to n-1
+        # ind_crs = 0
+        N_count=0
+        for ind_rows in trange(n,desc='Generation layout',position=0, leave=True):
+#             print("Layout Number: "+str(ind_rows))
+            
+            boundary_points=get_layout_border_points(cols,radius,perim_cells)
+#             print(boundary_points)
+#             print(len(boundary_points))
+            for num_turbing in range(N):
+#             for num_turbine in trange(N,desc="Layout Progress"):
+                return_status=0
+#                 print (num_turbing)
+                if num_turbing <len(boundary_points):
+#                     print(boundary_points[num_turbing])
+                    Y_pos=int(np.floor(boundary_points[num_turbing]/cols))
+                    X_pos=int(np.floor(boundary_points[num_turbing] - Y_pos * cols))
+                    if (layouts_NA[ind_rows,X_pos + Y_pos * cols] ==0):
+                        return_status=1
+#                     print("X_pos: "+str(X_pos)+" Y_pos: "+str(Y_pos)+ "actual coord:"+ str(boundary_points[num_turbing]) + " return Stat: "+ str(return_status))
+#                     print(str(X_pos + Y_pos * cols))
+                if(return_status==0): 
+                    (return_status,X_pos,Y_pos)=generate_valid_location(layouts_NA[ind_rows,:],cols,radius,minCut=0)
+                
+                if return_status==1:
+#                     print(X_pos)
+#                     print(Y_pos)
+                    layouts[ind_rows,X_pos + Y_pos * cols]=1
+
+                    #Naveen (put all positions inside square to occupy state (not zero))
+                    ind_interior_region=regionmappingindex(cols,X_pos + Y_pos * cols,radius,minCut=0)
+#                     print(ind_interior_region)
     #                 print("prior assignment")
     #                 print(layouts_NA[ind_rows, ind_interior_region])
                     layouts_NA[ind_rows, ind_interior_region] = layouts_NA[ind_rows, ind_interior_region] +1 #number of obstacles (#turbines) mapped to cell.

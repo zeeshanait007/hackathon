@@ -395,6 +395,9 @@ def getAEP(turb_rad, turb_coords, power_curve, wind_inst_freq,
     # Convert MWh to GWh
     AEP = AEP/1e3
     
+    power_per_turbine=power_per_turbine*8760.0/1e3
+
+    
     return(power_per_turbine,AEP)
     
 
